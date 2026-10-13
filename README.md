@@ -2,7 +2,7 @@
 
 A red-and-black GitHub Pages dashboard for **your existing Agent Codespace**. Real OpenClaw controls, a private GitHub-authenticated companion, and no API keys in the public frontend.
 
-**Implementation is ready; deployment needs two owner actions.** This session could not see your Codespace (`gh codespace list` returned no accessible instances) or enable Pages (GitHub API returned 403). GitHub reported this repository as **public**; its visibility was not changed. Do not upload OpenClaw state or secrets here.
+**Owner setup is required.** The dashboard has no embedded credentials. Add private integration secrets and review [Turso, schedules, machine sizes, and Messenger setup](docs/INTEGRATIONS.md). Do not upload OpenClaw state or secrets to this repository. The included integrations are not evidence of a successful deployment or account connection.
 
 ## What is included
 
@@ -14,6 +14,10 @@ A red-and-black GitHub Pages dashboard for **your existing Agent Codespace**. Re
 - Private credential entry/rotation, names-only inventory, and OpenClaw SecretRefs for compatible providers/skills/plugins/integrations.
 - Schema inspection, redacted config, concurrent-edit protection, sessions, cron controls, nodes, and health.
 - Automatic update toggle, release checks, supported update requests, and optional foreground Gateway supervision for Codespaces without systemd.
+- Turso persistence: AES-256-GCM encrypted config, dashboard credential vault, and companion policy; automatic restore of missing files and explicit restore of existing config.
+- Codespaces work hours: timezone-aware, overnight/multiple windows, external Actions wake/sleep scheduling, and live 2-/4-core machine selection.
+- Dedicated Sessions, Automations, Agents, and Nodes views with labeled SVG navigation on desktop and mobile.
+- Optional signed-webhook Facebook Page Messenger bridge with explicit sender allowlisting (not an official OpenClaw channel).
 - Actions deployment, devcontainer startup, automated security/unit/browser tests.
 
 This is a focused personal control panel, **not every feature of the official Control UI**. Chat is plain text with five-second history polling, not token streaming. File attachments, QR/OAuth login, and interactive plugin trust/permission prompts remain official-UI/private-terminal operations. Do not paste credentials in chat or the JSON editor.
@@ -21,8 +25,8 @@ This is a focused personal control panel, **not every feature of the official Co
 ## 1. Enable and deploy GitHub Pages — once
 
 1. In [repository Settings → Pages](https://github.com/caleb695/Openclaw-Agent/settings/pages), choose **Source: GitHub Actions**. An owner must do this because this session's integration lacks the Pages permission.
-2. The workflow **Deploy Agent Console** runs on pushes to `arena/c30307ef-openclaw-agent` and `main`. If the first run failed before Pages was enabled, open [Actions](https://github.com/caleb695/Openclaw-Agent/actions), choose that workflow run, and **Re-run all jobs**.
-3. If the `github-pages` environment restricts deployment branches, allow `arena/c30307ef-openclaw-agent` under **Settings → Environments → github-pages**, or review/merge the work through your normal process. Do not add secrets to this environment for the frontend.
+2. The workflow **Deploy Agent Console** runs on pushes to `main`, or via **Run workflow**. Review and merge changes before deployment. The obsolete second workflow that published the repository root was removed. If the first run failed before Pages was enabled, open [Actions](https://github.com/caleb695/Openclaw-Agent/actions), choose that workflow run, and **Re-run all jobs**.
+3. If the `github-pages` environment restricts deployment branches, allow the branch you explicitly chose to deploy under **Settings → Environments → github-pages**, or review/merge the work through your normal process. Do not add secrets to this environment for the frontend.
 4. Once the deploy job succeeds, open **https://caleb695.github.io/Openclaw-Agent/**. This is the expected URL, not a claim that deployment has already succeeded. Hash routes and relative asset paths support the project subdirectory.
 
 The build publishes **only `dist/`**, never the companion, OpenClaw config, or credentials. A private repository would not make client-side secrets safe. Private-repository Pages also requires an eligible GitHub plan.
@@ -36,8 +40,8 @@ First bring in this branch without discarding local work:
 ```bash
 git status --short
 # If this is not empty, save/review your work first. Do not reset it.
-git fetch origin arena/c30307ef-openclaw-agent
-git merge --ff-only origin/arena/c30307ef-openclaw-agent
+git fetch origin arena/bdf0a997-openclaw-agent
+git merge --ff-only origin/arena/bdf0a997-openclaw-agent
 ```
 
 If the fast-forward fails, resolve the branch difference normally; do not force-reset your existing agent's repository.
@@ -49,7 +53,7 @@ node --version
 openclaw --version
 ```
 
-The companion needs Node 22+, but **OpenClaw 2026.10.3 needs Node 24.16+ on the 24.x line, or 26.1+**. This implementation was live-tested with Node 24.16.0 and OpenClaw 2026.10.3. Do not blindly upgrade an older installation with existing state; follow OpenClaw's migration/backup instructions first.
+The companion needs Node 22+, but **OpenClaw 2026.10.3 needs Node 24.16+ on the 24.x line, or 26.1+**. Earlier companion functionality was live-tested with Node 24.16.0 and OpenClaw 2026.10.3. The new integrations have local/mock coverage; see docs/TESTING.md for the current verification boundary. Do not blindly upgrade an older installation with existing state; follow OpenClaw's migration/backup instructions first.
 
 With your existing Gateway still running, run:
 

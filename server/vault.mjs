@@ -2,10 +2,27 @@ import { mkdir, readFile, writeFile, rename, chmod } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 export class Vault {
-  constructor(dir) {
+  constructor(dir, db = null) {
+    this.db = db;
     this.dir = dir;
     this.path = join(dir, 'secrets.json');
     this.queue = Promise.resolve();
+  }
+  async init() {
+    if (!this.db) return;
+    const stored = await this.db.get('vault');
+    if (stored.value) await this.writeLocal(stored.value);
+    else {
+      const local = await this.read();
+      if (Object.keys(local).length) await this.db.put('vault', local, 0);
+    }
+  }
+  async writeLocal(data) {
+    await mkdir(this.dir, { recursive: true, mode: 0o700 });
+    await chmod(this.dir, 0o700);
+    const temp = `${this.path}.${randomUUID()}`;
+    await writeFile(temp, JSON.stringify(data), { mode: 0o600 });
+    await rename(temp, this.path);
   }
   async read() {
     try {
@@ -29,11 +46,11 @@ export class Vault {
     const work = this.queue.then(async () => {
       await mkdir(this.dir, { recursive: true, mode: 0o700 });
       await chmod(this.dir, 0o700);
-      const data = await this.read();
+      const stored = this.db ? await this.db.get('vault') : null;
+      const data = stored?.value || (await this.read());
       data[name] = value;
-      const temp = `${this.path}.${randomUUID()}`;
-      await writeFile(temp, JSON.stringify(data), { mode: 0o600 });
-      await rename(temp, this.path);
+      if (this.db) await this.db.put('vault', data, stored.revision);
+      await this.writeLocal(data);
       return { source: 'file', provider: 'dashboard', id: `/${name}` };
     });
     this.queue = work.catch(() => {});

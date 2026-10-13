@@ -1,7 +1,7 @@
 name: Deploy Agent Console
 on:
   push:
-    branches: [main, arena/c30307ef-openclaw-agent]
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read

@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { gatewayEnvironment } from './environment.mjs';
 import { mkdir, open, readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import net from 'node:net';
@@ -48,7 +49,7 @@ export class Supervisor {
     const log = await open(join(this.dir, 'gateway.log'), 'a', 0o600);
     this.child = spawn(this.claw.bin, ['gateway', 'run', '--bind', 'loopback'], {
       stdio: ['ignore', log.fd, log.fd],
-      env: process.env,
+      env: gatewayEnvironment(),
     });
     this.child.on('error', () => {
       this.child = null;

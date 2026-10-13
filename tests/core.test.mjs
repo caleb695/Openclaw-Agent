@@ -17,6 +17,7 @@ import { createApp } from '../server/index.mjs';
 import { Supervisor } from '../server/supervisor.mjs';
 test('redacts nested credentials but preserves usable references', () => {
   const ref = { source: 'file', provider: 'dashboard', id: '/KEY' };
+  assert.equal(sanitize({ apiKey: { ...ref, token: 'hidden' } }).apiKey, '[REDACTED]');
   assert.deepEqual(
     sanitize({ nested: { apiKey: 'secret', password: 'hidden', token: 'hidden' }, apiKey: ref }),
     { nested: { apiKey: '[REDACTED]', password: '[REDACTED]', token: '[REDACTED]' }, apiKey: ref },

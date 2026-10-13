@@ -33,6 +33,8 @@ window.addEventListener('message', async (e) => {
     typeof m.id !== 'string'
   )
     return;
+  const requestPeer = peer,
+    requestChannel = channel;
   try {
     // Credential submission can only originate in this private document, never via the relay.
     if (m.action === 'credentials.save')
@@ -43,13 +45,13 @@ window.addEventListener('message', async (e) => {
       body: JSON.stringify({ action: m.action, params: m.params }),
     });
     const result = await r.json();
-    peer.postMessage(
-      { kind: 'openclaw', type: 'response', channel, id: m.id, ...result },
+    requestPeer.postMessage(
+      { kind: 'openclaw', type: 'response', channel: requestChannel, id: m.id, ...result },
       boot.pagesOrigin,
     );
   } catch (e) {
-    peer?.postMessage(
-      { kind: 'openclaw', type: 'response', channel, id: m.id, error: e.message },
+    requestPeer?.postMessage(
+      { kind: 'openclaw', type: 'response', channel: requestChannel, id: m.id, error: e.message },
       boot.pagesOrigin,
     );
   }

@@ -51,6 +51,9 @@ export class Transport {
     );
     if (!this.popup) throw new Error('Allow popups for this site, then connect again.');
     this.onState('waiting');
+    this.monitor = setInterval(() => {
+      if (this.popup?.closed) this.disconnect();
+    }, 1000);
     this.hello = setInterval(() => {
       if (this.popup.closed) {
         this.disconnect();
@@ -62,13 +65,15 @@ export class Transport {
       );
     }, 1000);
     this.deadline = setTimeout(() => {
-      clearInterval(this.hello);
+      this.disconnect();
       this.onState('timeout');
     }, 120000);
   }
   disconnect() {
     clearInterval(this.hello);
     clearTimeout(this.deadline);
+    clearInterval(this.monitor);
+    this.popup = null;
     this.connected = false;
     for (const p of this.pending.values()) {
       clearTimeout(p.timer);

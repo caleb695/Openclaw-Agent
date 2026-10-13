@@ -1,5 +1,6 @@
 import './style.css';
 import { Transport } from './transport.js';
+import { icons } from './icons.js';
 const $ = (s) => document.querySelector(s);
 const esc = (x) =>
   String(x ?? '').replace(
@@ -7,20 +8,14 @@ const esc = (x) =>
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
   );
 const json = (x) => JSON.stringify(x, null, 2);
-const icons = {
-  overview: '◫',
-  chat: '▤',
-  models: '⬡',
-  channels: '⌁',
-  skills: '✧',
-  plugins: '▦',
-  credentials: '◇',
-  operations: '◷',
-  settings: '⚙',
-  updates: '↻',
-};
 const names = {
   overview: 'Overview',
+  sessions: 'Sessions',
+  cron: 'Automations',
+  nodes: 'Nodes',
+  agents: 'Agents',
+  codespaces: 'Codespaces',
+  database: 'Database',
   chat: 'Agent chat',
   models: 'Models & providers',
   channels: 'Messaging channels',
@@ -32,7 +27,13 @@ const names = {
   updates: 'Updates',
 };
 const subtitles = {
-  overview: 'Your agent, under control.',
+  overview: 'Connection, configuration, and runtime at a glance.',
+  sessions: 'Find a conversation and continue where you left off.',
+  cron: 'Scheduled agent tasks. Separate from Codespace wake and sleep hours.',
+  nodes: 'Devices connected to your Gateway.',
+  agents: 'The agents configured in your Gateway.',
+  codespaces: 'Set your working hours. Choose the right machine.',
+  database: 'Encrypted cloud persistence, independent of your Codespace.',
   chat: 'A direct line to your OpenClaw agent.',
   models: 'Your endpoints. Your models. No provider lock-in.',
   channels: 'Connect your agent to the places you work.',
@@ -49,12 +50,17 @@ let page = location.hash.slice(1) || 'overview',
   updateMode = { mode: 'native' },
   busy = false,
   polling = false,
-  session = 'agent:main:main';
+  session = 'agent:main:main',
+  codespaceState = null,
+  databaseState = null;
 const transport = new Transport((state) => {
   connection = state;
   updateConnection();
   if (state === 'connected') {
     notice('Private companion connected. Loading Agent…');
+    snapshot = null;
+    codespaceState = null;
+    databaseState = null;
     load();
   }
 });
@@ -78,11 +84,11 @@ const button = (text, action, cls = 'secondary') =>
   `<button class="${cls}" data-action="${action}">${text}</button>`;
 function shell() {
   $('#app').innerHTML =
-    `<aside><a class="brand" href="#overview"><span class="logo">⌘</span><span>OpenClaw<small>AGENT CONSOLE</small></span></a><div class="workspace"><span class="avatar">A</span><div>Agent<small>Personal workspace</small></div><span class="mini-dot"></span></div><p class="nav-label">WORKSPACE</p><nav>${['overview', 'chat', 'models', 'channels'].map(nav).join('')}<p class="nav-label">CAPABILITIES</p>${['skills', 'plugins', 'credentials'].map(nav).join('')}<p class="nav-label">SYSTEM</p>${['operations', 'settings', 'updates'].map(nav).join('')}</nav><div class="sidebar-bottom"><div><span class="status-dot"></span><span id="sidebar-state">Not connected</span></div><small>GITHUB CODESPACES · AGENT</small><a href="https://github.com/caleb695/Openclaw-Agent" target="_blank" rel="noopener noreferrer">Repository ↗</a></div></aside><div class="main"><header><div class="breadcrumb">Workspace <span>/</span> <b id="crumb"></b></div><div class="header-actions"><span class="private-badge">◇ Private connection</span><button class="avatar" data-action="connection">A</button></div></header><main><div class="page-heading"><div><div class="eyebrow">OPENCLAW CONTROL PLANE</div><h1 id="title"></h1><p id="subtitle"></p></div><div class="heading-actions"><span id="status" class="badge">Offline</span>${button('↻ Refresh', 'refresh')}${button('Connect Agent ↗', 'connection', 'primary')}</div></div><div id="notice" role="status" aria-live="polite" hidden></div><div id="content"></div><footer><span>OPENCLAW <i>/</i> PERSONAL AGENT CONSOLE</span><span>Secrets stay in Agent <span class="green">◇</span></span></footer></main></div><dialog id="connect-dialog"><div class="dialog-head"><h2>Connect your Agent</h2><button data-action="close-dialog" aria-label="Close">×</button></div><p>The dashboard is hosted on GitHub Pages. Your private Codespace companion handles all OpenClaw operations.</p><form id="connect-form">${field('Private companion URL', 'url', stored('companion-url'), 'url', 'https://your-codespace-3000.app.github.dev')}<ol><li>Start <b>Agent</b> at <a href="https://github.com/codespaces" target="_blank" rel="noopener">GitHub Codespaces ↗</a>.</li><li>Copy the <b>port 3000</b> forwarded URL. Keep its visibility <b>Private</b>.</li><li>Connect, sign in to GitHub, and choose <b>Allow this session</b> in the companion window.</li></ol><p class="hint">Keep the companion window open. If GitHub sign-in breaks the connection, return here and connect again after signing in. No token is needed.</p><button class="primary">Open private companion ↗</button></form></dialog>`;
+    `<aside><a class="brand" href="#overview"><span class="logo">${icons.agents}</span><span>OpenClaw<small>CONTROL CONSOLE</small></span></a><div class="workspace"><span class="avatar">A</span><div>Agent<small>Personal workspace</small></div><span class="mini-dot"></span></div><nav aria-label="Main navigation"><p class="nav-label">CHAT</p>${['chat', 'sessions'].map(nav).join('')}<p class="nav-label">CONTROL</p>${['overview', 'channels', 'agents', 'cron', 'nodes'].map(nav).join('')}<p class="nav-label">AGENT</p>${['models', 'skills', 'plugins'].map(nav).join('')}<p class="nav-label">SETTINGS</p>${['settings', 'credentials', 'database', 'codespaces', 'updates', 'operations'].map(nav).join('')}</nav><div class="sidebar-bottom"><div><span class="status-dot"></span><span id="sidebar-state">Not connected</span></div><small>GITHUB CODESPACES · AGENT</small><a href="https://github.com/caleb695/Openclaw-Agent" target="_blank" rel="noopener noreferrer">Repository ↗</a></div></aside><div class="main"><header><div class="breadcrumb">Workspace <span>/</span> <b id="crumb"></b></div><div class="header-actions"><span class="private-badge">◇ Private connection</span><button class="avatar" data-action="connection">A</button></div></header><main><div class="page-heading"><div><div class="eyebrow">OPENCLAW CONTROL PLANE</div><h1 id="title"></h1><p id="subtitle"></p></div><div class="heading-actions"><span id="status" class="badge">Offline</span>${button('↻ Refresh', 'refresh')}${button('Connect Agent ↗', 'connection', 'primary')}</div></div><div id="notice" role="status" aria-live="polite" hidden></div><div id="content"></div><footer><span>OPENCLAW <i>/</i> PERSONAL AGENT CONSOLE</span><span>Secrets stay in Agent <span class="green">◇</span></span></footer></main></div><dialog id="connect-dialog"><div class="dialog-head"><h2>Connect your Agent</h2><button data-action="close-dialog" aria-label="Close">×</button></div><p>The dashboard is hosted on GitHub Pages. Your private Codespace companion handles all OpenClaw operations.</p><form id="connect-form">${field('Private companion URL', 'url', stored('companion-url'), 'url', 'https://your-codespace-3000.app.github.dev')}<ol><li>Start <b>Agent</b> at <a href="https://github.com/codespaces" target="_blank" rel="noopener">GitHub Codespaces ↗</a>.</li><li>Copy the <b>port 3000</b> forwarded URL. Keep its visibility <b>Private</b>.</li><li>Connect, sign in to GitHub, and choose <b>Allow this session</b> in the companion window.</li></ol><p class="hint">Keep the companion window open. If GitHub sign-in breaks the connection, return here and connect again after signing in. No token is needed.</p><button class="primary">Open private companion ↗</button></form></dialog>`;
   render();
 }
 function nav(id) {
-  return `<a href="#${id}" data-page="${id}"><span>${icons[id]}</span>${names[id]}${id === 'chat' ? '<i>↗</i>' : ''}</a>`;
+  return `<a href="#${id}" data-page="${id}" title="${names[id]}" aria-label="${names[id]}"><span>${icons[id]}</span><span class="nav-text">${names[id]}</span></a>`;
 }
 function updateConnection() {
   if (!$('#status')) return;
@@ -121,15 +127,41 @@ function render() {
   $('#title').textContent = names[page];
   $('#subtitle').textContent = subtitles[page];
   $('#crumb').textContent = names[page];
-  document
-    .querySelectorAll('nav a')
-    .forEach((a) => a.classList.toggle('active', a.dataset.page === page));
+  document.querySelectorAll('nav a').forEach((a) => {
+    a.classList.toggle('active', a.dataset.page === page);
+    if (a.dataset.page === page) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
   $('#notice').hidden = true;
   updateConnection();
   const c = snapshot?.config || {};
   const views = {
     overview: () =>
-      `<div class="hero"><div class="hero-copy"><span class="hero-tag"><span class="live-dot"></span> YOUR PERSONAL AI WORKSPACE</span><h2>One agent.<br><span>Everything connected.</span></h2><p>Conversations, models, and integrations.<br>A single control center for your OpenClaw.</p><a href="#chat" class="primary link-button">Open agent chat <span>↗</span></a><a href="#models" class="text-link">Configure a provider →</a></div><div class="orb" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div><div class="core">⌘</div><span class="orb-node n1">✧</span><span class="orb-node n2">⌁</span><span class="orb-node n3">⬡</span></div><span class="hero-id">AGENT / 001</span></div><div class="stats">${stat('Gateway', connection === 'connected' ? 'Companion linked' : 'Not connected', 'Live health appears after connecting', '◫')}${stat('Default model', c.agents?.defaults?.model?.primary || 'Not loaded', 'Choose any compatible endpoint', '⬡')}${stat('Channels', snapshot ? String(Object.keys(c.channels || {}).length) : '—', 'Configured messaging integrations', '⌁')}${stat('Auto-updates', snapshot ? ((updateMode.mode === 'companion-supervised' ? updateMode.enabled : c.update?.auto?.enabled) ? 'Enabled' : 'Disabled') : '—', 'Stable channel · service required', '↻')}</div><div class="two-col">${panel('Workspace connections', 'Your agent stays private, even on a public website.', `<div class="connection-diagram"><div>◫<b>GitHub Pages</b><small>Dashboard</small></div><span>······</span><div>◇<b>GitHub auth</b><small>Private relay</small></div><span>······</span><div>⌘<b>Agent</b><small>OpenClaw</small></div></div><div class="panel-note">${connection === 'connected' ? 'Companion authorized for this browser session.' : 'Start Agent and connect its private companion to see live data.'}</div>${button('Configure connection ↗', 'connection')}`)}${panel('Quick actions', 'Make this workspace yours.', `<div class="quick-links"><a href="#models"><span>⬡</span><div>Add an AI provider<small>Custom base URLs and model IDs</small></div>↗</a><a href="#channels"><span>⌁</span><div>Connect a messaging channel<small>Telegram, Discord, and more</small></div>↗</a><a href="#credentials"><span>◇</span><div>Manage credentials<small>Server-side, write-only storage</small></div>↗</a></div>`)}</div>${panel('Gateway health', 'Live status from your OpenClaw instance.', `<div id="health">${empty('Ready when you are', 'Connect to Agent to load real Gateway health. No sample activity is shown.')}</div>`)}`,
+      `<div class="workspace-summary"><div><span class="badge ${connection === 'connected' ? 'online' : ''}">${connection === 'connected' ? 'Companion connected' : 'Connection required'}</span><h2>Gateway workspace</h2><p>Manage conversations, automations, and your agent’s configuration.</p></div><a href="#chat" class="primary link-button">Open chat</a></div><div class="stats">${stat('Gateway', connection === 'connected' ? 'Companion linked' : 'Not connected', 'Live health appears after connecting', icons.overview)}${stat('Default model', c.agents?.defaults?.model?.primary || 'Not loaded', 'Choose any compatible endpoint', icons.models)}${stat('Channels', snapshot ? String(Object.keys(c.channels || {}).length) : '—', 'Configured messaging integrations', icons.channels)}${stat('Auto-updates', snapshot ? ((updateMode.mode === 'companion-supervised' ? updateMode.enabled : c.update?.auto?.enabled) ? 'Enabled' : 'Disabled') : '—', 'Stable channel · service required', icons.updates)}</div><div class="two-col">${panel('Workspace connections', 'Your agent stays private, even on a public website.', `<div class="connection-diagram"><div>${icons.overview}<b>GitHub Pages</b><small>Dashboard</small></div><span>······</span><div>${icons.credentials}<b>GitHub auth</b><small>Private relay</small></div><span>······</span><div>${icons.agents}<b>Agent</b><small>OpenClaw</small></div></div><div class="panel-note">${connection === 'connected' ? 'Companion authorized for this browser session.' : 'Start Agent and connect its private companion to see live data.'}</div>${button('Configure connection ↗', 'connection')}`)}${panel('Quick actions', 'Make this workspace yours.', `<div class="quick-links"><a href="#models"><span>${icons.models}</span><div>Add an AI provider<small>Custom base URLs and model IDs</small></div>↗</a><a href="#channels"><span>${icons.channels}</span><div>Connect a messaging channel<small>Telegram, Discord, and more</small></div>↗</a><a href="#credentials"><span>${icons.credentials}</span><div>Manage credentials<small>Server-side, write-only storage</small></div>↗</a></div>`)}</div>${panel('Gateway health', 'Live status from your OpenClaw instance.', `<div id="health">${empty('Ready when you are', 'Connect to Agent to load real Gateway health. No sample activity is shown.')}</div>`)}`,
+    sessions: () =>
+      panel(
+        'Conversations',
+        'Open a session to load its actual history. No synthetic activity.',
+        `<label>Filter sessions<input id="session-filter" placeholder="Search name, key, or model"></label><div id="inventory">${empty('No sessions loaded', 'Connect to load Gateway sessions.')}</div>`,
+      ),
+    agents: () =>
+      panel(
+        'Agent roster',
+        'Configured agent IDs and identities, as reported by the Gateway.',
+        `<div id="inventory">${empty('No agents loaded', 'Connect to inspect your agents.')}</div>`,
+      ),
+    nodes: () =>
+      panel(
+        'Connected nodes',
+        'Connection state does not grant new permissions. Pairing remains under Gateway control.',
+        `<div id="inventory">${empty('No nodes loaded', 'Connect to inspect paired devices.')}</div>`,
+      ),
+    cron: () =>
+      `${panel('Automations', 'Run, pause, resume, or remove saved jobs. Jobs only execute while the Gateway is awake.', `<div id="inventory">${empty('No automations loaded', 'Connect to load scheduled tasks.')}</div>`)}${panel('Create an automation', 'An isolated agent turn with no external delivery. Use Operations for advanced job JSON.', `<form id="cron-form"><div class="form-grid">${field('Automation name', 'name', '', 'text', 'Morning summary')}${field('Cron expression', 'expression', '0 9 * * 1-5')}${field('Timezone', 'timeZone', Intl.DateTimeFormat().resolvedOptions().timeZone)}</div><label>Agent prompt<textarea name="message" rows="4" required placeholder="Summarize today’s priorities"></textarea></label><p class="hint">Five-field cron: minute hour day month weekday. Example: 0 9 * * 1-5 means weekdays at 09:00. Gateway validates the expression.</p><button class="primary">Create automation</button></form>`)}${panel('Run history', 'Select History on a job to inspect results.', output('cron-history'))}`,
+    database: () =>
+      `${panel('Turso persistence', 'Database credentials never enter the Pages bundle or browser storage.', `<div id="database-status">${empty('Storage status not loaded', 'Connect to check the database integration.')}</div><div class="form-footer">${button('Back up now', 'database-backup', 'primary')}${button('Restore saved configuration', 'database-restore')}</div>`)}${panel('What is saved', 'Configuration and dashboard-managed credentials survive a Codespace deletion when Turso is configured.', `<ul class="feature-list"><li>AES-256-GCM encrypted configuration snapshots</li><li>Encrypted credential vault; only names and SecretRefs reach this UI</li><li>Editable work hours and scheduler status</li><li>Missing config and vault restored on companion startup</li></ul><div class="warning"><b>Not a complete Agent backup</b><p>Chat history, memory, workspace files, installed plugins, and channel login files are not mirrored to Turso. Keep verified OpenClaw backups. Existing local config is never silently replaced.</p></div><p>Add repository secrets for Codespaces and Actions: <code>TURSO_DATABASE_URL</code>, <code>TURSO_AUTH_TOKEN</code>, and <code>DASHBOARD_ENCRYPTION_KEY</code>. Use the same namespace and key in both.</p><a class="text-link" href="https://github.com/caleb695/Openclaw-Agent/blob/main/docs/INTEGRATIONS.md" target="_blank" rel="noopener">Integration setup guide ↗</a>`)}`,
+    codespaces: () =>
+      `${panel('Machine & runtime', 'Change the machine without putting your GitHub token in the browser.', `<div id="codespace-status">${empty('Machine not loaded', 'Connect to check available 2-core and 4-core machines.')}</div><form id="machine-form"><label for="machine-select">Machine size</label><select name="machine" id="machine-select" required disabled><option value="">Load available machines first</option></select><p class="hint">A change applies on the next start, not immediately. Four cores use core-hours twice as fast as two. GitHub quota and organization policy still apply.</p><button class="primary" id="resize-button" disabled>Save machine size</button></form><a class="text-link" href="https://github.com/codespaces" target="_blank" rel="noopener">Start / stop on GitHub ↗</a>`)}${panel('Work schedule', 'A GitHub Actions controller wakes and stops this Codespace using your saved schedule.', `<form id="schedule-form"><label class="check"><input type="checkbox" name="enabled" id="schedule-enabled"> Enable scheduled work hours</label>${field('Schedule timezone', 'timeZone', 'UTC', 'text', 'America/New_York')}<div id="work-windows"></div>${button('Add time window', 'add-window')}<p class="hint">Windows may cross midnight. Days refer to the start day; end time is exclusive. Disable the schedule to return to manual control.</p><div class="warning"><b>Best-effort timing, not a spending cap</b><p>Actions checks about every 15 minutes and may be delayed or disabled by GitHub. Outside these windows the scheduler stops the Codespace—even if you are using it. A sleeping Codespace cannot serve chat or Messenger. Set GitHub budgets and an idle timeout too.</p></div><button class="primary" id="save-schedule" disabled>Save work schedule</button></form><div id="scheduler-status"></div><p class="hint">Requires the workflow on the default branch, Actions secrets, and repository variable <code>CODESPACE_SCHEDULER_ENABLED=true</code>. When sleeping, start it on GitHub to change this schedule.</p>`)}`,
     chat: () =>
       `<section class="panel chat-panel"><div class="chat-top"><span class="avatar">⌘</span><div><b>OpenClaw Agent</b><small>Gateway conversation · persisted in Agent</small></div><label class="session-label">Session<input id="session" value="${esc(session)}" aria-label="Session key"></label>${button('Load', 'history')}</div><div id="messages" class="messages" aria-live="polite">${empty('What are we working on?', 'Connect your Agent to start a conversation. Your chat history stays in the Codespace.')}</div><form id="chat-form"><label class="sr-only" for="message">Message your agent</label><textarea id="message" placeholder="Ask your agent anything…" rows="3" required></textarea><div class="composer-footer"><span>Plain-text replies · refreshes every 5 seconds</span><div>${button('Stop', 'abort')}<button class="primary" id="send">Send message ↑</button></div></div></form></section>`,
     models: () =>
@@ -161,13 +193,13 @@ function render() {
           .join(
             '',
           )}</div><div class="form-grid">${field('Channel ID', 'channel-id', 'telegram', 'text', 'Any installed channel ID')}</div><label>Channel configuration (JSON with SecretRefs)<textarea class="code" id="channel-json" rows="12">${esc(json(c.channels?.telegram || { enabled: true, botToken: { source: 'file', provider: 'dashboard', id: '/TELEGRAM_BOT_TOKEN' }, dmPolicy: 'pairing' }))}</textarea></label><div class="form-footer"><span>Keep pairing / allowlists enabled. Some channels require plugin installation or a private terminal login.</span>${button('Save channel', 'save-channel', 'primary')}</div>`,
-      )}${panel('Channel health', 'Live connection state. Saving configuration does not prove login succeeded.', `<div id="inventory">${empty('Awaiting channel status', 'Connect to load your actual messaging integrations.')}</div>`)}`,
+      )}${panel('Facebook Messenger', 'Optional custom bridge for a Facebook Page—not personal-account automation or an official OpenClaw plugin.', `<div id="messenger-status">Connect to check bridge readiness.</div><p>Uses signed Meta webhooks, a Page access token, and an explicit list of allowed people. Credentials are configured only as Codespaces secrets. Port 3001 serves only the webhook; keep the dashboard port 3000 private.</p><p class="hint">Text only. Requires Page/app permissions and a publicly reachable HTTPS webhook. Messages cannot be handled while Agent sleeps. Failed or interrupted turns are not automatically replayed.</p><a class="text-link" href="https://github.com/caleb695/Openclaw-Agent/blob/main/docs/INTEGRATIONS.md#facebook-messenger" target="_blank" rel="noopener">Messenger setup instructions ↗</a>`)}${panel('Channel health', 'Live connection state. Saving configuration does not prove login succeeded.', `<div id="inventory">${empty('Awaiting channel status', 'Connect to load your actual messaging integrations.')}</div>`)}`,
     skills: () =>
       `${panel('Installed skills', 'Enable capabilities and inspect dependency readiness.', `<div id="inventory">${empty('Your agent’s toolkit', 'Connect to load bundled and workspace skills.')}</div>`)}${panel('Skill configuration', 'Use a skill key from the inventory. Config, API keys, and environment mappings are supported.', `<div class="form-grid">${field('Skill key', 'skill-key', '', 'text', 'weather')}${field('Installer ID (from skill inventory)', 'install-id', '', 'text', 'brew / npm / installer ID')}</div><label>Skill entry JSON<textarea id="skill-json" class="code" rows="7">${esc(json({ enabled: true }))}</textarea></label><div class="form-footer"><span>Installing dependencies can execute third-party code. Review the source first.</span><div>${button('Install dependencies', 'install-skill')}${button('Save skill', 'save-skill', 'primary')}</div></div>`)}`,
     plugins: () =>
       `${panel('Plugin library', 'Only install code you trust. Plugin permissions and consent are enforced by OpenClaw.', `<div id="inventory">${empty('Extend your agent', 'Connect to inspect installed plugins and their status.')}</div>`)}${panel('Manage a plugin', 'Use an installed plugin ID, or a pinned npm package to install.', `<form id="plugin-form"><div class="form-grid">${field('Plugin ID or package', 'id', '', 'text', '@scope/plugin@1.2.3')}<label>Operation<select name="operation"><option>enable</option><option>disable</option><option>install</option><option>update</option><option>uninstall</option></select></label></div><p class="hint">Interactive source/capability consent must be completed in Agent’s terminal. This dashboard never bypasses it. Plugin-specific config and credentials are editable in Configuration.</p><button class="primary">Run operation</button></form>${output()}`)}`,
     credentials: () =>
-      `<div class="two-col">${panel('Private credential vault', 'No secret values are loaded into this dashboard.', `<div class="vault-visual">◇<span>SERVER-SIDE ONLY</span></div><h3>Your keys stay in Agent.</h3><p>Enter or rotate keys in the private, GitHub-authenticated companion window. This dashboard only sees credential names and references.</p>${button('Open private credential vault ↗', 'vault', 'primary')}<div id="inventory" class="credential-list"></div>`)}${panel('One reference. Any integration.', 'Use supported OpenClaw SecretRef fields.', `<pre class="output">${esc(json({ source: 'file', provider: 'dashboard', id: '/CUSTOM_API_KEY' }))}</pre><p>Reference your key from model providers, skills, messaging channels, or compatible plugin configuration.</p><ul class="feature-list"><li>Owner-only file permissions (0600)</li><li>Atomic, write-only credential storage</li><li>Outside this Git repository</li><li>No API keys in local storage</li></ul><p class="hint">Rotation replaces the named value. The companion requests a secrets reload after saving; check its confirmation for any reload warning. There is intentionally no reveal or delete endpoint: removing a referenced key could break Agent. Back up your vault privately before deleting the Codespace.</p>`)}</div>`,
+      `<div class="two-col">${panel('Private credential vault', 'No secret values are loaded into this dashboard.', `<div class="vault-visual">◇<span>SERVER-SIDE ONLY</span></div><h3>Your keys stay in Agent.</h3><p>Enter or rotate keys in the private, GitHub-authenticated companion window. This dashboard only sees credential names and references.</p>${button('Open private credential vault ↗', 'vault', 'primary')}<div id="inventory" class="credential-list"></div>`)}${panel('One reference. Any integration.', 'Use supported OpenClaw SecretRef fields.', `<pre class="output">${esc(json({ source: 'file', provider: 'dashboard', id: '/CUSTOM_API_KEY' }))}</pre><p>Reference your key from model providers, skills, messaging channels, or compatible plugin configuration.</p><ul class="feature-list"><li>Owner-only file permissions (0600)</li><li>Atomic, write-only credential storage</li><li>Outside this Git repository</li><li>No API keys in local storage</li></ul><p class="hint">Rotation replaces the named value. The companion requests a secrets reload after saving; check its confirmation for any reload warning. There is intentionally no reveal or delete endpoint: removing a referenced key could break Agent. When Turso is configured, credentials are encrypted in the database and restored into the private vault at startup. Check Database before deleting the Codespace.</p>`)}</div>`,
     operations: () =>
       `${panel(
         'Runtime explorer',
@@ -187,7 +219,7 @@ function render() {
       `${panel('Automatic OpenClaw updates', 'Supported OpenClaw update tooling. No install scripts from the browser.', `<div class="setting-row"><div><h3>Enable automatic updates</h3><p>Check and install stable releases with the update owner shown below.</p></div><label class="switch"><input id="auto-update" type="checkbox" ${c.update?.auto?.enabled ? 'checked' : ''} aria-label="Enable automatic OpenClaw updates"><span></span></label></div><div class="warning"><b>Managed Gateway service required</b><p>OpenClaw only auto-installs when its managed service can safely hand off and restart. A foreground Gateway in Codespaces will not auto-install. See service status below; do not mistake an enabled policy for a working update service.</p></div><p class="hint">Updates only run while Agent is awake. Back up state first. Source, container, and externally supervised installs have different update ownership. Unsupported handoffs are reported, never replaced with a blind npm install.</p><div class="form-footer"><span>Channel: <b>stable</b> · checks run only while Agent is awake</span>${button('Save update policy', 'save-updates', 'primary')}</div>`)}<div class="two-col">${panel('Release status', 'Check the actual installation and available version.', `${button('Check for updates', 'check-updates')}${button('Install supported update', 'run-update', 'primary')}${output('update-status')}`)}${panel('Service readiness', 'Verify that OpenClaw owns a managed Gateway service.', `${button('Inspect Gateway service', 'gateway-status')}${output('service-status')}<p>Without a managed service, use the private terminal: stop the Gateway through its actual owner, run <code>openclaw update</code>, then start it again. See the setup guide for Codespaces limitations.</p>`)}</div>`,
   };
   $('#content').innerHTML = views[page]();
-  const loading = transport.connected && !snapshot;
+  const loading = transport.connected && !snapshot && !['database', 'codespaces'].includes(page);
   $('#content').setAttribute('aria-busy', String(loading));
   if (loading) {
     for (const control of document.querySelectorAll(
@@ -236,15 +268,32 @@ async function load() {
   };
   const call = (method, params = {}) => read('rpc', { method, params });
   try {
+    if (current === 'codespaces') {
+      codespaceState = null;
+      codespaceState = await read('codespaces.status');
+      renderCodespace(codespaceState);
+      return;
+    }
+    if (current === 'database') {
+      databaseState = await read('database.status');
+      showData('#database-status', databaseState);
+      return;
+    }
     const mode = await read('updates.mode');
     if (!snapshot && !mode.busy) snapshot = await read('config');
     updateMode = mode;
     render();
+    if (current === 'sessions') sessions(await call('sessions.list'));
+    if (current === 'cron') automations(await call('cron.list', { includeDisabled: true }));
+    if (current === 'nodes') resources(await call('node.list'), 'nodes');
+    if (current === 'agents') resources(await call('agents.list'), 'agents');
     if (current === 'overview') showData('#health', await call('health'));
     if (current === 'chat') await history();
     if (current === 'models') models(await call('models.list'));
-    if (current === 'channels')
+    if (current === 'channels') {
+      showData('#messenger-status', await read('messenger.status'));
       showData('#inventory', await call('channels.status', { probe: true }));
+    }
     if (current === 'skills') skills(await call('skills.status'));
     if (current === 'plugins') plugins(await read('plugins.list'));
     if (current === 'credentials') {
@@ -271,6 +320,61 @@ async function load() {
     if (active()) notice(e.message, true);
   }
 }
+function workWindow(w) {
+  return `<fieldset class="work-window"><legend>Work window</legend><div class="day-picker">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => `<label class="check"><input type="checkbox" name="day" value="${i}" ${w.days.includes(i) ? 'checked' : ''}>${d}</label>`).join('')}</div><div class="form-grid">${field('Start', 'start', w.start, 'time')}${field('End', 'end', w.end, 'time')}</div><button type="button" data-remove-window>Remove window</button></fieldset>`;
+}
+function renderCodespace(data) {
+  showData('#codespace-status', {
+    configured: data.configured,
+    name: data.name,
+    state: data.state,
+    machine: data.machine,
+    notice: data.notice,
+  });
+  const select = $('#machine-select');
+  select.innerHTML =
+    (data.machines || [])
+      .map(
+        (m) =>
+          `<option value="${esc(m.name)}" ${m.name === data.machine?.name ? 'selected' : ''}>${esc(m.cpus)} cores — ${esc(m.displayName || m.name)}</option>`,
+      )
+      .join('') || '<option value="">No available machine sizes</option>';
+  select.disabled = !data.machines?.length;
+  $('#resize-button').disabled = !data.machines?.length;
+  $('#schedule-enabled').checked = data.schedule.enabled;
+  $('#schedule-form [name="timeZone"]').value = data.schedule.timeZone;
+  $('#work-windows').innerHTML = data.schedule.windows.map(workWindow).join('');
+  $('#save-schedule').disabled = !data.persistent || !data.configured;
+  showData('#scheduler-status', {
+    target: data.target,
+    revision: data.revision,
+    lastCheck:
+      data.lastCheck || 'No scheduler check recorded. Saving hours does not enable GitHub Actions.',
+  });
+}
+function sessions(data) {
+  const rows = data.sessions || [];
+  if (!rows.length) return showData('#inventory', data);
+  $('#inventory').innerHTML =
+    `<div class="table-wrap"><table><thead><tr><th>Session</th><th>Model</th><th>Updated</th><th></th></tr></thead><tbody>${rows.map((s) => `<tr data-session-row><td><b>${esc(s.displayName || s.label || s.key)}</b><br><code>${esc(s.key)}</code></td><td>${esc(s.model || 'Default')}</td><td>${esc(s.updatedAt ? new Date(s.updatedAt).toLocaleString() : '—')}</td><td><button data-session="${esc(s.key)}">Open chat</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+function automations(data) {
+  const rows = data.jobs || [];
+  if (!rows.length) return showData('#inventory', data);
+  $('#inventory').innerHTML =
+    `<div class="table-wrap"><table><thead><tr><th>Automation</th><th>Schedule</th><th>State</th><th>Actions</th></tr></thead><tbody>${rows.map((j) => `<tr><td>${esc(j.name || j.id)}<br><code>${esc(j.id)}</code></td><td>${esc(j.schedule?.expr || (j.schedule?.everyMs ? `Every ${j.schedule.everyMs / 1000}s` : j.schedule?.at || '—'))}<br><small>${esc(j.schedule?.tz || '')}</small></td><td>${j.enabled ? 'Active' : 'Paused'}<br>${esc(j.state?.lastStatus || 'No runs')}</td><td class="row-actions"><button data-cron="${esc(j.id)}" data-op="run">Run now</button><button data-cron="${esc(j.id)}" data-op="toggle" data-enabled="${!j.enabled}">${j.enabled ? 'Pause' : 'Resume'}</button><button data-cron="${esc(j.id)}" data-op="history">History</button><button data-cron="${esc(j.id)}" data-op="remove">Remove</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+function resources(data, kind) {
+  const rows = data[kind] || [];
+  if (!rows.length) return showData('#inventory', data);
+  $('#inventory').innerHTML =
+    `<div class="resource-list">${rows.map((r) => `<article class="resource-row">${icons[kind]}<div><h3>${esc(r.identity?.name || r.name || r.displayName || r.id || r.nodeId)}</h3><code>${esc(r.id || r.nodeId)}</code><p>${esc(kind === 'nodes' ? (r.connected ? 'Connected' : 'Disconnected') : r.identity?.theme || 'Configured agent')}</p></div>${kind === 'agents' ? `<button data-session="agent:${esc(r.id)}:main">Open chat</button>` : ''}</article>`).join('')}</div>`;
+}
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'session-filter')
+    for (const row of document.querySelectorAll('[data-session-row]'))
+      row.hidden = !row.textContent.toLowerCase().includes(e.target.value.toLowerCase());
+});
 function models(data) {
   const list = data.models || [];
   if (!list.length) return showData('#inventory', data);
@@ -327,6 +431,30 @@ async function history() {
 }
 async function act(action) {
   switch (action) {
+    case 'database-backup':
+      notice((await request('database.backup')).notice);
+      showData('#database-status', await request('database.status'));
+      return;
+    case 'database-restore': {
+      if (
+        !confirm(
+          'Replace the current Gateway configuration with the encrypted cloud snapshot? This may restart the Gateway. Existing state and plugins are not restored.',
+        )
+      )
+        return;
+      const current = await request('config');
+      notice((await request('database.restore', { hash: current.hash })).notice);
+      snapshot = null;
+      return;
+    }
+    case 'add-window':
+      if (document.querySelectorAll('.work-window').length >= 21)
+        throw new Error('Maximum 21 work windows.');
+      $('#work-windows').insertAdjacentHTML(
+        'beforeend',
+        workWindow({ days: [1, 2, 3, 4, 5], start: '09:00', end: '17:00' }),
+      );
+      return;
     case 'connection':
       $('#connect-dialog').showModal();
       return;
@@ -439,6 +567,27 @@ document.addEventListener('click', (e) => {
     e.preventDefault();
     safe(() => act(el.dataset.action), el);
   }
+  if (el.hasAttribute('data-remove-window')) el.closest('.work-window').remove();
+  if (el.dataset.session) {
+    session = el.dataset.session;
+    location.hash = 'chat';
+  }
+  if (el.dataset.cron)
+    safe(async () => {
+      const id = el.dataset.cron;
+      const op = el.dataset.op;
+      if (op === 'history') {
+        showData('#cron-history', await rpc('cron.runs', { id, limit: 20 }));
+        return;
+      }
+      if (!confirm(`${op} this automation?`)) return;
+      await rpc(
+        op === 'run' ? 'cron.run' : op === 'remove' ? 'cron.remove' : 'cron.update',
+        op === 'toggle' ? { id, patch: { enabled: el.dataset.enabled === 'true' } } : { id },
+      );
+      await load();
+      notice('Automation change accepted.');
+    }, el);
   if (el.dataset.inspect)
     safe(async () => showData('#inventory', await rpc(el.dataset.inspect)), el);
   if (el.dataset.plugin)
@@ -468,6 +617,41 @@ document.addEventListener('submit', (e) => {
   const form = e.target,
     data = Object.fromEntries(new FormData(form));
   safe(async () => {
+    if (form.id === 'machine-form') {
+      if (
+        !confirm('Apply this machine size on the next Codespace start? Billing usage will change.')
+      )
+        return;
+      notice((await request('codespaces.resize', { machine: data.machine })).notice);
+    }
+    if (form.id === 'schedule-form') {
+      if (!codespaceState) throw new Error('Load schedule state first.');
+      const windows = [...form.querySelectorAll('.work-window')].map((row) => ({
+        days: [...row.querySelectorAll('[name="day"]:checked')].map((x) => Number(x.value)),
+        start: row.querySelector('[name="start"]').value,
+        end: row.querySelector('[name="end"]').value,
+      }));
+      const result = await request('codespaces.schedule', {
+        revision: codespaceState.revision,
+        schedule: { enabled: !!data.enabled, timeZone: data.timeZone, windows },
+      });
+      await load();
+      notice(result.notice);
+    }
+    if (form.id === 'cron-form') {
+      if (!data.name.trim() || !data.message.trim())
+        throw new Error('A name and prompt are required.');
+      await rpc('cron.add', {
+        name: data.name.trim(),
+        enabled: true,
+        schedule: { kind: 'cron', expr: data.expression.trim(), tz: data.timeZone.trim() },
+        sessionTarget: 'isolated',
+        payload: { kind: 'agentTurn', message: data.message.trim() },
+        delivery: { mode: 'none' },
+      });
+      await load();
+      notice('Automation created. It runs only while the Gateway is awake.');
+    }
     if (form.getAttribute('id') === 'connect-form') {
       transport.connect(data.url);
       store('companion-url', data.url);
@@ -486,6 +670,7 @@ document.addEventListener('submit', (e) => {
           message,
           idempotencyKey: crypto.randomUUID(),
         });
+        if (page !== 'chat' || !$('#message')) return;
         $('#message').value = '';
         notice(
           `Message accepted${result.runId ? ' · ' + result.runId : ''}. Waiting for the agent’s reply.`,

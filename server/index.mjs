@@ -8,6 +8,10 @@ import { OpenClaw } from './openclaw.mjs';
 import { Vault } from './vault.mjs';
 import { Service } from './service.mjs';
 import { Supervisor } from './supervisor.mjs';
+import { databaseFromEnv } from './database.mjs';
+import { Persistence } from './persistence.mjs';
+import { Codespaces } from './codespaces.mjs';
+import { Messenger } from './messenger.mjs';
 export function createApp({
   service,
   origin,
@@ -107,19 +111,49 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     (process.env.CODESPACES
       ? '/workspaces/.openclaw-dashboard'
       : join(homedir(), '.openclaw-dashboard'));
+  const claw = new OpenClaw();
+  const db = await databaseFromEnv();
+  const vault = new Vault(state, db);
+  await vault.init();
+  const configPath =
+    process.env.OPENCLAW_CONFIG_PATH ||
+    join(process.env.OPENCLAW_STATE_DIR || join(homedir(), '.openclaw'), 'openclaw.json');
+  const persistence = new Persistence(db, claw, configPath, vault.path);
+  await persistence.restoreMissing();
   let settings = {};
   try {
     settings = JSON.parse(await readFile(join(state, 'settings.json'), 'utf8'));
   } catch (e) {
     if (e.code !== 'ENOENT') throw e;
   }
-  const claw = new OpenClaw();
   const supervisor =
     process.env.MANAGE_GATEWAY === '1' || settings.manageGateway
       ? new Supervisor(claw, state)
       : null;
   if (supervisor) await supervisor.init();
-  const service = new Service(claw, new Vault(state), supervisor);
+  const messenger =
+    process.env.MESSENGER_ENABLED === '1' ? await new Messenger(claw, state).init() : null;
+  const messengerServer = messenger?.createServer();
+  messengerServer?.listen(3001, '0.0.0.0', () =>
+    console.log(
+      'Messenger-only webhook listening on port 3001. Dashboard remains private on port 3000.',
+    ),
+  );
+  const service = new Service(claw, vault, supervisor, {
+    persistence,
+    codespaces: new Codespaces(db),
+    messenger,
+  });
+  // Periodic backup covers supported changes made outside the dashboard, too.
+  const backupTimer = db
+    ? setInterval(
+        () => {
+          if (!supervisor?.busy && !service.mutating) persistence.afterChange();
+        },
+        5 * 60 * 1000,
+      )
+    : null;
+  backupTimer?.unref();
   for (const signal of ['SIGTERM', 'SIGINT'])
     process.on(signal, async () => {
       if (supervisor?.busy) {
@@ -127,6 +161,9 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
         return;
       }
       if (supervisor) await supervisor.close();
+      messengerServer?.close();
+      clearInterval(backupTimer);
+      db?.close();
       process.exit(0);
     });
   createApp({
