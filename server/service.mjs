@@ -2,6 +2,7 @@ import {
   readMethods,
   writeMethods,
   sanitize,
+  sanitizeSchema,
   rejectInlineSecrets,
   validateTree,
   patchConfig,
@@ -38,7 +39,8 @@ export class Service {
       if (!readMethods.has(p.method) && !writeMethods.has(p.method))
         throw new Error('RPC method is not allowed.');
       rejectInlineSecrets(p.params);
-      return sanitize(await this.claw.rpc(p.method, p.params || {}));
+      const result = await this.claw.rpc(p.method, p.params || {});
+      return p.method === 'config.schema' ? sanitizeSchema(result) : sanitize(result);
     }
     if (action === 'patch') {
       rejectInlineSecrets(p.patch);

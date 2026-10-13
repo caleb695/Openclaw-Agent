@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   sanitize,
+  sanitizeSchema,
   rejectInlineSecrets,
   validateTree,
   patchConfig,
@@ -22,6 +23,12 @@ test('redacts nested credentials but preserves usable references', () => {
   );
 });
 test('rejects inline credentials and prototype pollution', () => {
+  assert.doesNotThrow(() => rejectInlineSecrets({ maxTokens: 8192, tokenLimit: 4096 }));
+  assert.equal(sanitize({ maxTokens: 8192 }).maxTokens, 8192);
+  assert.deepEqual(
+    sanitizeSchema({ properties: { apiKey: { type: 'string', default: 'hidden' } } }),
+    { properties: { apiKey: { type: 'string' } } },
+  );
   assert.throws(() =>
     rejectInlineSecrets({ models: { providers: { custom: { apiKey: 'secret' } } } }),
   );

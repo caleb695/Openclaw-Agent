@@ -78,7 +78,7 @@ export const writeMethods = new Set([
   'sessions.patch',
 ]);
 export const secretKey =
-  /api.?key|token|secret|password|credential|authorization|cookie|private.?key/i;
+  /api.?key|token$|secret|password|credential|authorization|cookie|private.?key/i;
 export const isRef = (v) =>
   v &&
   typeof v === 'object' &&
@@ -91,6 +91,18 @@ export function sanitize(value, key = '') {
   if (Array.isArray(value)) return value.map((v) => sanitize(v));
   if (value && typeof value === 'object')
     return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, sanitize(v, k)]));
+  return value;
+}
+// Schemas describe credential fields; their names are not credential values.
+// Strip authored defaults/examples rather than destroying secret-field schemas.
+export function sanitizeSchema(value) {
+  if (Array.isArray(value)) return value.map(sanitizeSchema);
+  if (value && typeof value === 'object')
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([key]) => !['default', 'example', 'examples'].includes(key))
+        .map(([key, item]) => [key, sanitizeSchema(item)]),
+    );
   return value;
 }
 export function validateTree(value) {
