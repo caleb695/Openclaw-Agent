@@ -90,6 +90,11 @@ aside {
   display: flex;
   flex-direction: column;
   z-index: 5;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+aside > * {
+  flex-shrink: 0;
 }
 .brand {
   display: flex;

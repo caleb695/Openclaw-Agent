@@ -40,7 +40,11 @@ test('all routes work offline, responsive layout, no script errors', async ({ pa
     await page.locator(`[data-page="${route}"]`).click();
     await expect(page.locator('h1')).toHaveText(title);
   }
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width: 390, height: 600 });
+  for (const route of ['updates', 'overview', 'settings']) {
+    await page.locator(`[data-page="${route}"]`).click();
+    await expect(page).toHaveURL(new RegExp('#' + route + '$'));
+  }
   await page.goto('/#overview');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
