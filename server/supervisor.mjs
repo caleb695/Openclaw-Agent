@@ -182,6 +182,11 @@ export class Supervisor {
         throw new Error(
           'Update finished but Gateway health did not recover. Inspect the private log and backup; automatic rollback of migrated state is unsafe.',
         );
+      const running = await this.claw.rpc('status');
+      if (running.runtimeVersion !== target)
+        throw new Error(
+          'Gateway recovered but does not report the requested release. Inspect OpenClaw update status; completion has not been verified.',
+        );
       this.last = { state: 'completed', at: new Date().toISOString() };
     } catch (e) {
       this.last = { state: 'failed', at: new Date().toISOString(), message: e.message };

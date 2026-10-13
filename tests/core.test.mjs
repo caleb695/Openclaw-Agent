@@ -202,9 +202,9 @@ test('supervised update orders drain → verified backup → pinned supported up
         };
       return { status: 'ok' };
     },
-    rpc: async () => {
-      events.push('health');
-      return { ok: true };
+    rpc: async (method) => {
+      events.push(method);
+      return { ok: true, runtimeVersion: '2026.10.4' };
     },
   };
   const s = new Supervisor(claw, dir);
@@ -223,9 +223,14 @@ test('supervised update orders drain → verified backup → pinned supported up
       'update --yes --tag 2026.10.4 --no-restart --json',
       'start',
       'health',
+      'status',
     ],
   );
   assert.ok(events[2].includes('--verify'));
+  claw.rpc = async () => ({ ok: true, runtimeVersion: '2026.10.3' });
+  await s.check(true);
+  assert.equal(s.last.state, 'failed');
+  assert.match(s.last.message, /does not report the requested release/);
   await rm(dir, { recursive: true, force: true });
 });
 test('backup failure prevents package replacement and restarts the owned Gateway', async () => {
