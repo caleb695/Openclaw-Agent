@@ -1,0 +1,80 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  background: #0d0d10;
+  color: #ececef;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 620px;
+  margin: 60px auto;
+  padding: 24px;
+}
+.mark {
+  color: #ff5c5c;
+  font-size: 48px;
+}
+.eyebrow {
+  letter-spacing: 0.18em;
+  font-size: 11px;
+  color: #ff7272;
+}
+h1 {
+  font-size: 36px;
+  letter-spacing: -1.3px;
+}
+p {
+  color: #aaaab6;
+  line-height: 1.7;
+}
+section {
+  border: 1px solid #303037;
+  border-radius: 14px;
+  padding: 24px;
+  margin: 24px 0;
+  background: #151518;
+}
+h2 {
+  font-size: 18px;
+}
+label {
+  display: block;
+  font-size: 13px;
+  margin: 16px 0;
+}
+input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  background: #0c0c0e;
+  border: 1px solid #44444b;
+  padding: 12px;
+  border-radius: 7px;
+  color: white;
+  margin-top: 8px;
+}
+button {
+  background: #bd303b;
+  border: 0;
+  border-radius: 7px;
+  padding: 12px 18px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+}
+pre {
+  white-space: pre-wrap;
+  color: #aaa;
+  font-size: 12px;
+}
+.foot {
+  font-size: 12px;
+}
+a {
+  color: #ff7272;
+}
