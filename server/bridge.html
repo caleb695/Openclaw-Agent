@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>OpenClaw · Private companion</title>
+    <link rel="stylesheet" href="/bridge.css" />
+  </head>
+  <body>
+    <main>
+      <div class="mark">◈</div>
+      <p class="eyebrow">OPENCLAW / PRIVATE COMPANION</p>
+      <h1>Your secure connection.</h1>
+      <p>
+        This window runs inside Agent, behind GitHub authentication. Keep it open while using the
+        Pages dashboard.
+      </p>
+      <section>
+        <h2>Authorize dashboard</h2>
+        <p id="site">Loading trusted site…</p>
+        <button id="approve">Allow this session</button>
+        <p id="connection" role="status">Waiting for dashboard.</p>
+      </section>
+      <section>
+        <h2>Credential vault</h2>
+        <p>
+          Values are write-only. They never go to GitHub Pages, local storage, or Git. To rotate a
+          key, save a new value under the same name.
+        </p>
+        <form id="vault">
+          <label
+            >Credential name<input
+              name="name"
+              pattern="[A-Z][A-Z0-9_]{0,127}"
+              placeholder="CUSTOM_API_KEY"
+              required
+              autocomplete="off" /></label
+          ><label
+            >Secret value<input
+              name="value"
+              type="password"
+              required
+              autocomplete="new-password" /></label
+          ><button>Save securely</button>
+        </form>
+        <pre id="result" role="status"></pre>
+        <p>
+          Use the returned SecretRef in a provider, skill, channel, or plugin credential field. Not
+          every third-party plugin supports SecretRefs; consult its schema. Store unsupported
+          secrets using that plugin’s server-side setup, never Pages.
+        </p>
+      </section>
+      <p class="foot">No third-party scripts. No credential reveal endpoint.</p>
+    </main>
+    <script type="module" src="/bridge.js"></script>
+  </body>
+</html>

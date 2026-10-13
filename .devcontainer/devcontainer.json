@@ -1,0 +1,15 @@
+{
+  "name": "OpenClaw Agent Console",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "OpenClaw private companion",
+      "onAutoForward": "notify",
+      "protocol": "http"
+    },
+    "18789": { "label": "OpenClaw Gateway — keep loopback only", "onAutoForward": "ignore" }
+  },
+  "postStartCommand": "bash scripts/start.sh",
+  "remoteUser": "node"
+}
