@@ -45,3 +45,11 @@ Codespaces tests use mocked GitHub responses, covering local-time/DST/overnight 
 - No real provider key, Telegram/Discord login, OAuth/QR flow, paid model call, plugin install/capability grant, or messaging delivery.
 - No real package replacement/downgrade was performed. Update orchestration is covered with deterministic process/CLI tests; actual installation success depends on Agent's supported package owner, runtime, storage, permissions, and release compatibility. The isolated local npm test installation correctly reports an unknown update owner and is refused by supervised auto-update policy.
 - This is not a third-party security audit. GitHub's private-port authentication, trusted same-origin Pages code, local host integrity, and upstream OpenClaw validation remain part of the trust boundary.
+
+## Full-state Turso mirror coverage
+
+`tests/full-backup.test.mjs` uses the production libSQL driver against a local database and real tar archives with an explicitly mocked OpenClaw CLI boundary. It checks multi-chunk binary round trips, encrypted rows, private recovery permissions, companion/extra file inclusion, backup/log exclusions, deletion of an agent’s memory/conversations and all previous snapshot chunks, legacy-document cleanup, interrupted uploads, size limits, retry, namespace isolation, stale/concurrent publication, vault write races, abandoned-upload retirement, lost-commit cleanup safety, wrong keys, missing/tampered chunks, staged recovery cleanup, background-job coalescing and follow-up sync after edits, maintenance exclusion, and prevention of config/vault resurrection.
+
+These tests do not claim a live Turso account was modified or validate a real OpenClaw database migration. Native archive flags/semantics were checked against OpenClaw v2026.10.3’s CLI documentation in its GitHub repository. Owner acceptance still requires a real full capture, staged recovery, and agent-deletion/sync test in the Codespace.
+
+Verification for this mirror revision: `npm run check` passed all **34 Node tests** and the production build; `npm run format:check` passed; all **4 Playwright browser tests** passed using the external npm-distributed Chromium/NSS runtime described above. `npm audit --omit=dev` reported no known vulnerabilities. The browser fixture now uses the real full-mirror persistence path with a mocked native archive creator.

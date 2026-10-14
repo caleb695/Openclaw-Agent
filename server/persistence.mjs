@@ -10,7 +10,8 @@ export async function privateWrite(path, data) {
   await rename(temp, path);
 }
 export class Persistence {
-  constructor(db, claw, configPath, vaultPath) {
+  constructor(db, claw, configPath, vaultPath, fullBackup = null) {
+    this.fullBackup = fullBackup;
     this.db = db;
     this.claw = claw;
     this.configPath = configPath;
@@ -27,6 +28,13 @@ export class Persistence {
     } catch (e) {
       if (e.code !== 'ENOENT') throw e;
       exists = false;
+    }
+    if (this.fullBackup && (await this.fullBackup.store.latest()).value) {
+      if (!exists)
+        throw new Error(
+          'A full Turso mirror exists, but local OpenClaw configuration is missing. Run npm run backup:recover -- --output /private/new-directory --extract and activate the recovered state before starting. Automatic config-only recovery is disabled to protect conversations and memory.',
+        );
+      return; // Disk is authoritative. Never resurrect deleted files from a mirror at startup.
     }
     if (!exists) {
       const saved = await this.db.get('openclaw-config');
@@ -57,6 +65,14 @@ export class Persistence {
         mode: 'Local only',
         notice: 'Add Turso secrets to Codespaces and Actions to enable encrypted persistence.',
       };
+    if (this.fullBackup)
+      return {
+        configured: true,
+        mode: 'Turso · AES-256-GCM · full-state mirror',
+        ...(await this.fullBackup.status()),
+        notice:
+          'One current recovery point, synced every five minutes while running and after dashboard edits. Sync now after external deletions. Recovery is terminal-only; no archive or secret contents reach the browser.',
+      };
     const saved = await this.db.get('openclaw-config');
     return {
       configured: true,
@@ -68,7 +84,27 @@ export class Persistence {
         'Config and dashboard vault only. Chat, memory, installed plugins, and channel login files still require OpenClaw backups.',
     };
   }
+  startBackup() {
+    if (!this.fullBackup) return this.backup();
+    const alreadyRunning = !!this.fullBackup.running;
+    if (alreadyRunning) this.fullBackup.resyncRequested = true;
+    // Long jobs outlive browser relay timeouts; status reports completion/failure.
+    this.backup().catch(() => {});
+    return {
+      saved: false,
+      running: true,
+      notice: alreadyRunning
+        ? 'A full sync is already running; a follow-up sync is queued for current changes. Refresh Database to check completion.'
+        : 'Full mirror sync started. Deletions are pending until it completes. Refresh Database to check completion.',
+    };
+  }
   backup() {
+    if (this.fullBackup)
+      return this.fullBackup.backup().catch(() => {
+        throw new Error(
+          this.fullBackup.warning || 'Full mirror sync failed. Check Database status.',
+        );
+      });
     const work = this.queue.then(async () => {
       if (!this.db)
         return { saved: false, notice: 'Local configuration saved. Turso is not configured.' };
@@ -130,6 +166,10 @@ export class Persistence {
   }
   async afterChange() {
     if (!this.db) return '';
+    if (this.fullBackup) {
+      // An edit during capture needs a subsequent capture, not just the in-flight snapshot.
+      return ' ' + this.startBackup().notice;
+    }
     try {
       return ' ' + (await this.backup()).notice;
     } catch {
@@ -139,6 +179,10 @@ export class Persistence {
     }
   }
   async restore(hash) {
+    if (this.fullBackup)
+      throw new Error(
+        'Use npm run backup:recover in the private terminal to recover the full mirror. Config-only restore is disabled.',
+      );
     if (!this.db) throw new Error('Turso is not configured.');
     const saved = await this.db.get('openclaw-config');
     if (!saved.value) throw new Error('No saved configuration exists.');

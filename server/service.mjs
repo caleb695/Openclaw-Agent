@@ -21,7 +21,9 @@ export class Service {
     this.vault = vault;
     this.supervisor = supervisor;
     this.mutating = false;
-    if (supervisor) supervisor.maintenanceBlocked = () => this.mutating;
+    if (supervisor)
+      supervisor.maintenanceBlocked = () =>
+        this.mutating || !!this.persistence?.fullBackup?.running;
   }
   async config() {
     const c = await this.claw.rpc('config.get');
@@ -55,7 +57,8 @@ export class Service {
     if (action === 'database.status') return this.persistence?.status() || { configured: false };
     if (action === 'database.backup') {
       if (!this.persistence) throw new Error('Database integration is not configured.');
-      return this.persistence.backup();
+      if (this.supervisor?.busy) throw new Error('Wait for Gateway maintenance before syncing.');
+      return this.persistence.startBackup();
     }
     if (action === 'database.restore') {
       if (!this.persistence) throw new Error('Database integration is not configured.');

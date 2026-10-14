@@ -108,8 +108,14 @@ test('cloud backup, editable schedules, machine selection and labeled automation
   page.on('dialog', (d) => d.accept());
   await page.locator('[data-page="database"]').click();
   await expect(page.locator('#database-status')).toContainText('Turso');
-  await page.getByRole('button', { name: 'Back up now' }).click();
-  await expect(page.locator('#notice')).toContainText('snapshot saved');
+  await page.getByRole('button', { name: 'Sync full backup now' }).click();
+  await expect(page.locator('#notice')).toContainText('sync started');
+  await expect(async () => {
+    await page.getByRole('button', { name: '↻ Refresh', exact: true }).click();
+    await expect(page.locator('#database-status')).toContainText('"busy": false');
+    await expect(page.locator('#database-status')).toContainText('"retainedSnapshots": 1');
+    await expect(page.locator('#database-status')).not.toContainText('"updatedAt": null');
+  }).toPass();
   await page.locator('[data-page="codespaces"]').click();
   await expect(page.locator('#codespace-status')).toContainText('Available');
   await page.getByLabel('Machine size', { exact: true }).selectOption('four-core');
