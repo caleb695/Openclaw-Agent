@@ -28,6 +28,12 @@ test('all routes work offline, responsive layout, no script errors', async ({ pa
   await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible();
   for (const [route, title] of Object.entries({
     chat: 'Agent chat',
+    sessions: 'Sessions',
+    agents: 'Agents',
+    cron: 'Automations',
+    nodes: 'Nodes',
+    codespaces: 'Codespaces',
+    database: 'Database',
     models: 'Models & providers',
     channels: 'Messaging channels',
     skills: 'Skills',
@@ -41,9 +47,13 @@ test('all routes work offline, responsive layout, no script errors', async ({ pa
     await expect(page.locator('h1')).toHaveText(title);
   }
   await page.setViewportSize({ width: 390, height: 600 });
-  for (const route of ['updates', 'overview', 'settings']) {
+  for (const route of ['updates', 'overview', 'settings', 'codespaces', 'database', 'cron']) {
     await page.locator(`[data-page="${route}"]`).click();
     await expect(page).toHaveURL(new RegExp('#' + route + '$'));
+    await expect(page.locator(`[data-page="${route}"] .nav-text`)).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
   }
   await page.goto('/#overview');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -86,5 +96,57 @@ test('spoofed ready message cannot authorize a dashboard', async ({ page }) => {
   await page.evaluate(() =>
     window.postMessage({ kind: 'openclaw', type: 'ready', channel: 'fake' }, location.origin),
   );
+  await expect(page.locator('#status')).toHaveText('Offline');
+});
+
+test('cloud backup, editable schedules, machine selection and labeled automation/session controls', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/');
+  const popup = await connect(page, context);
+  page.on('dialog', (d) => d.accept());
+  await page.locator('[data-page="database"]').click();
+  await expect(page.locator('#database-status')).toContainText('Turso');
+  await page.getByRole('button', { name: 'Back up now' }).click();
+  await expect(page.locator('#notice')).toContainText('snapshot saved');
+  await page.locator('[data-page="codespaces"]').click();
+  await expect(page.locator('#codespace-status')).toContainText('Available');
+  await page.getByLabel('Machine size', { exact: true }).selectOption('four-core');
+  await page.getByRole('button', { name: 'Save machine size' }).click();
+  await expect(page.locator('#notice')).toContainText('next time');
+  await page.getByLabel('Enable scheduled work hours').check();
+  await page.getByLabel('Schedule timezone').fill('America/New_York');
+  await page.getByRole('button', { name: 'Add time window' }).click();
+  await page.locator('.work-window').last().getByLabel('Start', { exact: true }).fill('22:00');
+  await page.locator('.work-window').last().getByLabel('End', { exact: true }).fill('02:00');
+  await page.getByRole('button', { name: 'Save work schedule' }).click();
+  await expect(page.locator('#notice')).toContainText('Schedule saved');
+  await page.reload();
+  await popup.close();
+  const secondPopup = await connect(page, context);
+  await expect(page.getByLabel('Schedule timezone')).toHaveValue('America/New_York');
+  await expect(page.locator('.work-window')).toHaveCount(2);
+  await expect(page.getByLabel('Enable scheduled work hours')).toBeChecked();
+  await page.locator('[data-page="sessions"]').click();
+  await expect(page.locator('#inventory')).toContainText('Main conversation');
+  await page.getByLabel('Filter sessions').fill('not-a-session');
+  await expect(page.locator('[data-session-row]')).toBeHidden();
+  await page.getByLabel('Filter sessions').fill('');
+  await page.getByRole('button', { name: 'Open chat', exact: true }).click();
+  await expect(page.locator('h1')).toHaveText('Agent chat');
+  await page.locator('[data-page="cron"]').click();
+  await expect(page.getByLabel('Automation name')).toBeEnabled();
+  await page.getByLabel('Automation name').fill('Browser automation');
+  await page.getByLabel('Agent prompt').fill('Summarize the weather');
+  await page.getByRole('button', { name: 'Create automation' }).click();
+  await expect(page.locator('#inventory')).toContainText('Browser automation');
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  await expect(page.locator('#inventory')).toContainText('Paused');
+  await page.getByRole('button', { name: 'History', exact: true }).click();
+  await expect(page.locator('#cron-history')).toContainText('ok');
+  await page.getByRole('button', { name: 'Remove', exact: true }).click();
+  await expect(page.locator('#inventory')).not.toContainText('Browser automation');
+  await secondPopup.close();
   await expect(page.locator('#status')).toHaveText('Offline');
 });

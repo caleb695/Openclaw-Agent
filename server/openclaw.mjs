@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { gatewayEnvironment } from './environment.mjs';
 const exec = promisify(execFile);
 export class OpenClaw {
   constructor(bin = process.env.OPENCLAW_BIN || 'openclaw') {
@@ -10,7 +11,7 @@ export class OpenClaw {
       const pending = exec(this.bin, args, {
         timeout,
         maxBuffer: 8 * 1024 * 1024,
-        env: { ...process.env, NO_COLOR: '1' },
+        env: { ...gatewayEnvironment(), NO_COLOR: '1' },
         windowsHide: true,
       });
       pending.child?.stdin?.end();
@@ -63,6 +64,9 @@ export const readMethods = new Set([
   'skills.status',
   'channels.status',
   'cron.list',
+  'cron.runs',
+  'cron.status',
+  'agents.list',
   'node.list',
   'config.schema',
 ]);
@@ -84,7 +88,8 @@ export const isRef = (v) =>
   typeof v === 'object' &&
   ['env', 'file', 'exec', 'store'].includes(v.source) &&
   typeof v.id === 'string' &&
-  typeof v.provider === 'string';
+  typeof v.provider === 'string' &&
+  Object.keys(v).every((key) => ['source', 'provider', 'id'].includes(key));
 export function sanitize(value, key = '') {
   if (isRef(value)) return value;
   if (secretKey.test(key) && value != null && value !== '') return '[REDACTED]';

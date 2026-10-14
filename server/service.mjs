@@ -8,7 +8,15 @@ import {
   patchConfig,
 } from './openclaw.mjs';
 export class Service {
-  constructor(claw, vault, supervisor = null) {
+  constructor(
+    claw,
+    vault,
+    supervisor = null,
+    { persistence = null, codespaces = null, messenger = null } = {},
+  ) {
+    this.persistence = persistence;
+    this.codespaces = codespaces;
+    this.messenger = messenger;
     this.claw = claw;
     this.vault = vault;
     this.supervisor = supervisor;
@@ -26,7 +34,47 @@ export class Service {
     };
   }
   async dispatch(action, p = {}, privateRequest = false) {
+    const result = await this.execute(action, p, privateRequest);
+    if (
+      this.persistence &&
+      ['patch', 'credentials.save', 'updates.policy', 'plugins.change'].includes(action)
+    ) {
+      const backup = await this.persistence.afterChange();
+      if (backup) {
+        result.notice = (result.notice || 'Change accepted.') + backup;
+        if (this.persistence.lastWarning)
+          result.warning = [result.warning, this.persistence.lastWarning].filter(Boolean).join(' ');
+      }
+    }
+    return result;
+  }
+  async execute(action, p = {}, privateRequest = false) {
+    if (typeof action !== 'string' || !p || typeof p !== 'object' || Array.isArray(p))
+      throw new Error('Invalid action parameters.');
     validateTree(p);
+    if (action === 'database.status') return this.persistence?.status() || { configured: false };
+    if (action === 'database.backup') {
+      if (!this.persistence) throw new Error('Database integration is not configured.');
+      return this.persistence.backup();
+    }
+    if (action === 'database.restore') {
+      if (!this.persistence) throw new Error('Database integration is not configured.');
+      if (this.supervisor?.busy) throw new Error('Wait for Gateway maintenance before restoring.');
+      return this.persistence.restore(p.hash);
+    }
+    if (action === 'messenger.status')
+      return (
+        this.messenger?.status() || {
+          configured: false,
+          notice: 'Messenger bridge is disabled. See docs/INTEGRATIONS.md.',
+        }
+      );
+    if (action.startsWith('codespaces.')) {
+      if (!this.codespaces) throw new Error('Codespaces integration is not configured.');
+      if (action === 'codespaces.status') return this.codespaces.status();
+      if (action === 'codespaces.schedule') return this.codespaces.saveSchedule(p);
+      if (action === 'codespaces.resize') return this.codespaces.resize(p.machine);
+    }
     if (
       this.supervisor?.busy &&
       !['updates.status', 'updates.mode', 'gateway.status', 'credentials.list'].includes(action)

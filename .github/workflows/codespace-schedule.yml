@@ -1,0 +1,32 @@
+name: Codespace work schedule
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: codespace-work-schedule
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Explicit opt-in prevents failing scheduled runs before secrets are installed.
+    if: vars.CODESPACE_SCHEDULER_ENABLED == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --omit=dev
+      - name: Reconcile saved work schedule
+        run: node scripts/schedule.mjs
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          DASHBOARD_ENCRYPTION_KEY: ${{ secrets.DASHBOARD_ENCRYPTION_KEY }}
+          DASHBOARD_NAMESPACE: ${{ vars.DASHBOARD_NAMESPACE }}
+          CODESPACES_TOKEN: ${{ secrets.CODESPACES_TOKEN }}
+          CODESPACE_NAME: ${{ vars.CODESPACE_NAME }}

@@ -1441,3 +1441,157 @@ td code {
   font-size: 10px;
   overflow-wrap: anywhere;
 }
+
+/* Control UI-inspired operator layout: labels stay visible at every breakpoint. */
+.icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.logo .icon {
+  width: 26px;
+  height: 26px;
+}
+nav a {
+  min-height: 36px;
+  padding: 8px 11px;
+  gap: 11px;
+  margin-bottom: 3px;
+}
+nav a.active {
+  padding: 7px 10px;
+}
+nav a > span:first-child {
+  display: inline-flex;
+  width: 20px;
+}
+nav a > .nav-text {
+  width: auto;
+  font-size: 12px;
+}
+.nav-label {
+  margin: 22px 11px 9px;
+}
+.workspace {
+  margin-bottom: 0;
+}
+.workspace-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+.workspace-summary h2 {
+  font-size: 24px;
+  margin: 14px 0 8px;
+  letter-spacing: -0.5px;
+}
+.workspace-summary p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+.empty-icon .icon {
+  width: 30px;
+  height: 30px;
+}
+.work-window {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  margin: 18px 0;
+}
+.work-window legend {
+  color: var(--muted);
+  padding: 0 6px;
+}
+.day-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+.day-picker .check {
+  margin: 0 0 15px;
+}
+.row-actions {
+  min-width: 210px;
+}
+.row-actions button {
+  margin: 3px;
+}
+.resource-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+.resource-row > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.resource-row h3 {
+  margin: 0 0 6px;
+}
+#machine-form {
+  margin-bottom: 20px;
+}
+#schedule-form > .primary {
+  margin-top: 20px;
+}
+@media (max-width: 850px) {
+  aside {
+    position: relative;
+    width: 100%;
+    padding: 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand {
+    justify-content: flex-start;
+  }
+  .brand > span + span {
+    display: block;
+  }
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 16px;
+  }
+  nav a,
+  nav a.active {
+    padding: 8px;
+    justify-content: flex-start;
+    margin: 0;
+    font-size: 12px;
+  }
+  nav a > .nav-text {
+    display: inline;
+    font-size: 11px;
+  }
+  nav a .icon {
+    width: 17px;
+    height: 17px;
+  }
+  .main {
+    margin-left: 0;
+  }
+  .workspace-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .session-label {
+    display: block;
+    max-width: 100%;
+  }
+  .chat-top {
+    flex-wrap: wrap;
+  }
+}
