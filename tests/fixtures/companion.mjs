@@ -8,6 +8,8 @@ import { createClient } from '@libsql/client';
 import { Database } from '../../server/database.mjs';
 import { Persistence, privateWrite } from '../../server/persistence.mjs';
 import { Codespaces } from '../../server/codespaces.mjs';
+import { FullBackup } from '../../server/full-backup.mjs';
+import * as tar from 'tar';
 const config = {
   agents: { defaults: { model: { primary: 'test/example' } } },
   channels: {},
@@ -85,7 +87,16 @@ const claw = {
     if (method === 'config.schema') return { schema: { type: 'object' } };
     return { ok: true };
   },
-  command: async () => ({ plugins: [] }),
+  command: async (args) => {
+    if (args[0] === 'backup' && args[1] === 'create') {
+      await tar.c(
+        { cwd: dir, file: join(args[args.indexOf('--output') + 1], 'fixture.tar.gz'), gzip: true },
+        ['openclaw.json'],
+      );
+      return { warnings: [] };
+    }
+    return { plugins: [] };
+  },
 };
 const dir = await mkdtemp(tmpdir() + '/dashboard-browser-');
 const db = await new Database(
@@ -93,9 +104,10 @@ const db = await new Database(
   'ab'.repeat(32),
   'browser',
 ).init();
-const vault = new Vault(dir, db);
+const vault = new Vault(join(dir, 'companion'), db, { localAuthoritative: true });
 await privateWrite(join(dir, 'openclaw.json'), config);
-const persistence = new Persistence(db, claw, join(dir, 'openclaw.json'), vault.path);
+const fullBackup = await new FullBackup(db, claw, vault.dir).init();
+const persistence = new Persistence(db, claw, join(dir, 'openclaw.json'), vault.path, fullBackup);
 const codespaces = new Codespaces(db, {
   token: 'fixture-only',
   name: 'test-agent',

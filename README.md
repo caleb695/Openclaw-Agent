@@ -14,7 +14,7 @@ A red-and-black GitHub Pages dashboard for **your existing Agent Codespace**. Re
 - Private credential entry/rotation, names-only inventory, and OpenClaw SecretRefs for compatible providers/skills/plugins/integrations.
 - Schema inspection, redacted config, concurrent-edit protection, sessions, cron controls, nodes, and health.
 - Automatic update toggle, release checks, supported update requests, and optional foreground Gateway supervision for Codespaces without systemd.
-- Turso persistence: AES-256-GCM encrypted config, dashboard credential vault, and companion policy; automatic restore of missing files and explicit restore of existing config.
+- Turso full-state mirror: encrypted OpenClaw archives and companion data, private staged recovery, and deletion propagation with one current snapshot (no historical retention).
 - Codespaces work hours: timezone-aware, overnight/multiple windows, external Actions wake/sleep scheduling, and live 2-/4-core machine selection.
 - Dedicated Sessions, Automations, Agents, and Nodes views with labeled SVG navigation on desktop and mobile.
 - Optional signed-webhook Facebook Page Messenger bridge with explicit sender allowlisting (not an official OpenClaw channel).
@@ -186,7 +186,7 @@ mv "$HOME/.openclaw" "$HOME/.openclaw.pre-dashboard-backup"
 ln -s /workspaces/.openclaw-agent-state "$HOME/.openclaw"
 ```
 
-Run those as a guarded script (`set -e`) or individually and stop on any error. Retain the backup until OpenClaw health, sessions, providers, and channels are verified. `scripts/start.sh` restores this exact symlink after a rebuild if the home location is absent. Custom state directories, external workspaces, profile locations, plugin data, and OAuth files outside that tree need their own persistence and backup plan—do not assume the default-state migration covers them. Record the installation version and needed binaries before a rebuild.
+Run those as a guarded script (`set -e`) or individually and stop on any error. Retain the backup until OpenClaw health, sessions, providers, and channels are verified. `scripts/start.sh` restores this exact symlink after a rebuild if the home location is absent. Custom state directories, external workspaces, profile locations, plugin data, and OAuth files outside that tree need explicit coverage—do not assume the default-state migration covers them. Check the full Turso mirror’s native inventory and configure extra paths where needed. Record the installation version and needed binaries before a rebuild.
 
 ## Configuration reference (server only)
 
@@ -200,6 +200,16 @@ Run those as a guarded script (`set -e`) or individually and stop on any error. 
 | `MANAGE_GATEWAY=1`    | Opt into foreground lifecycle ownership; setup also persists this choice               |
 
 Set environment variables in the server's private startup environment, not in frontend code or tracked files. All Pages projects on `caleb695.github.io` share an origin; only host trusted code there, or use a dedicated custom domain. Read [SECURITY.md](docs/SECURITY.md).
+
+## Full private Turso mirror
+
+Turso now stores verified **full OpenClaw archives**, not just configuration: conversations, memory databases, workspace files, configured agent state, credentials, and supported plugin state. Companion data is included separately; extra external paths can be configured server-side. Everything uploaded is encrypted before leaving the Codespace.
+
+**Deleted data is not retained as historical snapshots.** Each successful sync replaces the current recovery point and deletes all old snapshots/chunks from the active database. Delete the agent’s files in OpenClaw, then choose **Database → Sync full backup now**, or wait for the next five-minute sync while the companion is running. Failed/offline syncs leave deletions pending. Files still present on disk can still be captured; Turso’s own recovery retention is separate.
+
+Use `npm run backup:status` and `npm run backup:sync` in the private terminal. Full recovery is staged with `npm run backup:recover -- --output /workspaces/private-openclaw-recovery --extract`; stop sync writers first and never activate recovered state over a running bot. This is a supported OpenClaw state backup, not an OS/runtime disk image.
+
+See **[coverage, limits, deletion semantics, and step-by-step recovery](docs/INTEGRATIONS.md#1-turso)**. Existing Turso secrets are reused after deploying/restarting this revision; test recovery before deleting the Codespace.
 
 ## Limitations and troubleshooting
 

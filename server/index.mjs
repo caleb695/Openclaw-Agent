@@ -10,6 +10,7 @@ import { Service } from './service.mjs';
 import { Supervisor } from './supervisor.mjs';
 import { databaseFromEnv } from './database.mjs';
 import { Persistence } from './persistence.mjs';
+import { FullBackup, fullBackupOptions } from './full-backup.mjs';
 import { Codespaces } from './codespaces.mjs';
 import { Messenger } from './messenger.mjs';
 export function createApp({
@@ -113,13 +114,14 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
       : join(homedir(), '.openclaw-dashboard'));
   const claw = new OpenClaw();
   const db = await databaseFromEnv();
-  const vault = new Vault(state, db);
-  await vault.init();
+  const vault = new Vault(state, db, { localAuthoritative: true });
   const configPath =
     process.env.OPENCLAW_CONFIG_PATH ||
     join(process.env.OPENCLAW_STATE_DIR || join(homedir(), '.openclaw'), 'openclaw.json');
-  const persistence = new Persistence(db, claw, configPath, vault.path);
+  const fullBackup = db ? await new FullBackup(db, claw, state, fullBackupOptions()).init() : null;
+  const persistence = new Persistence(db, claw, configPath, vault.path, fullBackup);
   await persistence.restoreMissing();
+  await vault.init({ restore: !(fullBackup && (await fullBackup.store.latest()).value) });
   let settings = {};
   try {
     settings = JSON.parse(await readFile(join(state, 'settings.json'), 'utf8'));
@@ -148,18 +150,24 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const backupTimer = db
     ? setInterval(
         () => {
-          if (!supervisor?.busy && !service.mutating) persistence.afterChange();
+          if (!supervisor?.busy && !service.mutating && !fullBackup?.running)
+            persistence.startBackup();
         },
         5 * 60 * 1000,
       )
     : null;
   backupTimer?.unref();
+  if (db && !supervisor?.busy) persistence.startBackup();
   for (const signal of ['SIGTERM', 'SIGINT'])
     process.on(signal, async () => {
       if (supervisor?.busy) {
         console.error('Update in progress; wait for maintenance to finish before stopping.');
         return;
       }
+      // Finish an in-flight sync if the host grants enough shutdown time. Abrupt stops
+      // leave the last committed snapshot intact, not a partially uploaded recovery point.
+      clearInterval(backupTimer);
+      if (fullBackup?.running) await fullBackup.running.catch(() => {});
       if (supervisor) await supervisor.close();
       messengerServer?.close();
       clearInterval(backupTimer);
